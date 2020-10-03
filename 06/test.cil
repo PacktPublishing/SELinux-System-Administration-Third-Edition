@@ -1,0 +1,1 @@
+(auditallow staff_sudo_t sysadm_t (process (transition)))

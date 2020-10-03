@@ -1,0 +1,61 @@
+---
+- name: Set SELinux to enforcing mode
+  selinux:
+          policy: targeted
+          state: enforcing
+
+- name: Create /usr/share/selinux/custom directory
+  file:
+          path: /usr/share/selinux/custom
+          owner: root
+          group: root
+          mode: '0755'
+          state: directory
+
+- name: Upload test.cil file to /usr/share/selinux/custom
+  copy:
+          # src: "{{ role_path }}/test.cil"
+          src: test.cil
+          dest: /usr/share/selinux/custom/test.cil
+          owner: root
+          group: root
+          mode: '0644'
+          setype: 'var_t'
+
+- name: Check if test SELinux module is loaded
+  shell: /usr/sbin/semodule -l | grep -q ^test$
+  register: test_is_loaded
+  ignore_errors: True
+
+- name: Load test.cil if not loaded yet
+  command: /usr/sbin/semodule -i /usr/share/selinux/custom/test.cil
+  when: test_is_loaded is failed
+
+- name: Set httpd_builtin_scripting to true
+  seboolean:
+          name: httpd_builtin_scripting
+          state: yes
+
+- name: Set the context for /srv/web
+  sefcontext:
+          target: '/srv/web(/.*)?'
+          setype: httpd_sys_content_t
+          state: present
+
+- name: Set zoneminder_t as permissive domain
+  selinux_permissive:
+          name: zoneminder_t
+          permissive: true
+
+- name: Map taylor's login to the unconfined_u user
+  selogin:
+          login: taylor
+          seuser: unconfined_u
+          state: present
+
+- name: Set port 10122 to ssh_port_t
+  seport:
+          ports: 10122
+          proto: tcp
+          setype: ssh_port_t
+          state: present
